@@ -35,7 +35,7 @@ auto main(int argc, char* argv[]) -> int {
 
     return EXIT_SUCCESS;
   } catch (const std::exception& e) {
-    fmt::print(fmt::fg(fmt::color::red), "{}\n", e.what());
+    fmt::print(fmt::fg(fmt::color::red), "Unexpected exception: {}\n", e.what());
     return EXIT_FAILURE;
   }
 }

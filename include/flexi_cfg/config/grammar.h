@@ -24,9 +24,7 @@ struct ALPHAPLUS : peg::plus<peg::sor<peg::identifier_other, peg::one<'-'>>> {};
 struct ENVIRONMENT_VAR : peg::seq<peg::one<'$'>, peg::one<'{'>,
                                   peg::star<peg::sor<peg::alnum, peg::one<'_'>>>, peg::one<'}'>> {};
 struct FILEPART : peg::sor<ENVIRONMENT_VAR, DOTDOT, ALPHAPLUS> {};
-struct FILENAME : peg::seq<peg::list<FILEPART, SEP>, EXT> {};
-
-struct grammar : peg::must<FILENAME> {};
+struct FILENAME : peg::seq<peg::list<peg::opt<SEP>, FILEPART, SEP>, EXT> {};
 
 }  // namespace filename
 
@@ -37,10 +35,12 @@ struct expression;
 
 namespace config {
 
+struct BEGIN : peg::bof {};
+struct END : peg::eof {};
 struct WS_ : peg::star<peg::space> {};
 struct SP : peg::plus<peg::blank> {};
-struct COMMENT : peg::seq<peg::one<'#'>, peg::until<peg::eol>, WS_> {};
-struct TAIL : peg::seq<WS_, peg::star<COMMENT>> {};
+struct COMMENT : peg::seq<peg::one<'#'>, peg::until<peg::eol>> {};
+struct TAIL : peg::seq<WS_, peg::sor<COMMENT, WS_>> {};
 // A rule for padding another rule with blanks on either side
 template <typename Rule>
 struct pd : peg::pad<Rule, peg::blank> {};
@@ -66,7 +66,18 @@ struct ASk : TAO_PEGTL_KEYWORD("as") {};
 struct OVERRIDEk : TAO_PEGTL_KEYWORD("[override]") {};
 struct PARENTNAMEk : TAO_PEGTL_KEYWORD("$PARENT_NAME") {};
 
-struct RESERVED : peg::sor<STRUCTk, PROTOk, REFk, ASk, OVERRIDEk, PARENTNAMEk> {};
+struct INCLUDEk : TAO_PEGTL_KEYWORD("include") {};
+struct INCLUDE_RELATIVEk : TAO_PEGTL_KEYWORD("include_relative") {};
+struct OPTIONALk : TAO_PEGTL_KEYWORD("[optional]") {};
+
+struct INCLUDE : peg::if_must<INCLUDEk, SP, peg::opt<OPTIONALk, SP>, filename::FILENAME> {};
+struct INCLUDE_RELATIVE
+    : peg::if_must<INCLUDE_RELATIVEk, SP, peg::opt<OPTIONALk, SP>, filename::FILENAME> {};
+struct includes
+    : peg::seq<peg::star<peg::seq<peg::if_must<INCLUDE, TAIL>>>, peg::star<peg::seq<peg::if_must<INCLUDE_RELATIVE, TAIL>>>> {};
+
+struct RESERVED : peg::sor<STRUCTk, PROTOk, REFk, ASk, OVERRIDEk, PARENTNAMEk, INCLUDEk,
+                           INCLUDE_RELATIVEk, OPTIONALk> {};
 
 struct HEXTAG : peg::seq<peg::one<'0'>, peg::one<'x', 'X'>> {};
 struct HEX : peg::seq<HEXTAG, peg::plus<peg::xdigit>> {};
@@ -113,7 +124,7 @@ struct KEY : peg::seq<peg::not_at<RESERVED>, peg::lower, peg::star<peg::identifi
 struct FLAT_KEY : peg::list<KEY, peg::one<'.'>> {};
 
 // A 'VAR' can only be found within a proto (and it's children)
-struct VARc : peg::seq<peg::upper, peg::star<peg::ranges<'A', 'Z', '0', '9', '_'>>> {};
+struct VARc : peg::seq<peg::not_at<RESERVED>, peg::upper, peg::star<peg::ranges<'A', 'Z', '0', '9', '_'>>> {};
 // Allow for VAR to be expessed as: $VAR or ${VAR}
 struct VAR : peg::seq<peg::one<'$'>, peg::sor<peg::seq<peg::one<'{'>, VARc, peg::one<'}'>>, VARc>> {
 };
@@ -167,17 +178,6 @@ struct STRUCT_IN_PROTO : STRUCT_LIKE<STRUCTs, PROTOc> {};
 struct PROTOc : peg::plus<peg::sor<PROTO_PAIR, STRUCT_IN_PROTO, REFERENCE>> {};
 struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>> {};
 
-// Include syntax
-struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::grammar, TAIL> {};
-struct include_list : peg::star<INCLUDE> {};
-
-// Include relative syntax
-struct INCLUDE_RELATIVE
-    : peg::seq<TAO_PEGTL_KEYWORD("include_relative"), SP, filename::grammar, TAIL> {};
-struct include_relative_list : peg::star<INCLUDE_RELATIVE> {};
-
-struct includes : peg::seq<include_list, include_relative_list, TAIL> {};
-
 // A single file should look like this:
 //
 //  1. Optional list of include files
@@ -198,7 +198,7 @@ struct config_fields
 
 struct CONFIG : peg::seq<TAIL, peg::not_at<peg::eolf>, includes, config_fields, TAIL> {};
 
-struct grammar : peg::seq<CONFIG, peg::eolf> {};
+struct grammar : peg::seq<BEGIN, CONFIG, END> {};
 
 // Custom error messages for rules
 template <typename>
@@ -225,8 +225,23 @@ template <>
 inline constexpr auto error_message<STRUCTc> = "expected a pair, struct or reference";
 
 template <>
+inline constexpr auto error_message<INCLUDEk> = "expected an include path";
+template <>
+inline constexpr auto error_message<INCLUDE_RELATIVEk> = "expected a relative include path";
+
+template <>
+inline constexpr auto error_message<peg::opt<OPTIONALk, SP>> = "expected an [optional] attribute";
+template <>
+inline constexpr auto error_message<INCLUDE> = "no statements allowed after include";
+template <>
+inline constexpr auto error_message<INCLUDE_RELATIVE> = "no statements allowed after include";
+
+
+template <>
 inline constexpr auto error_message<filename::FILENAME> = "invalid filename";
 
+template <>
+inline constexpr auto error_message<SP> = "expected space (why are we here?)";
 template <>
 inline constexpr auto error_message<WS_> = "expected whitespace (why are we here?)";
 template <>
