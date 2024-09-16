@@ -147,7 +147,7 @@ struct PROTO_PAIR
 
 // A rule for defining struct-like objects
 template <typename Start, typename Content>
-struct STRUCT_LIKE : peg::seq<Start, peg::if_must<CBo, TAIL, Content, CBc, TAIL>> {};
+struct STRUCT_LIKE : peg::seq<Start, peg::if_must<CBo, TAIL, Content, TAIL, CBc>, TAIL> {};
 
 struct REFs : peg::seq<REFk, SP, FLAT_KEY, SP, ASk, SP, KEY> {};
 struct REFc : peg::star<peg::sor<REF_VARDEF, REF_ADDKVP>> {};
@@ -165,7 +165,7 @@ struct STRUCT : STRUCT_LIKE<STRUCTs, STRUCTc> {};
 struct STRUCT_IN_PROTO : STRUCT_LIKE<STRUCTs, PROTOc> {};
 
 struct PROTOc : peg::plus<peg::sor<PROTO_PAIR, STRUCT_IN_PROTO, REFERENCE>> {};
-struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>> {};
+struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>, TAIL> {};
 
 // Include syntax
 struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::FILENAME, TAIL> {};

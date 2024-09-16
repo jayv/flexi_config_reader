@@ -96,6 +96,7 @@ set(CFG_HEADERS
   include/flexi_cfg/config/grammar.h
   include/flexi_cfg/config/helpers.h
   include/flexi_cfg/config/selector.h
+  include/flexi_cfg/config/trace.h
   include/flexi_cfg/logger.h
   include/flexi_cfg/math/actions.h
   include/flexi_cfg/math/grammar.h

@@ -15,13 +15,13 @@
 #include <sstream>
 #include <tao/pegtl.hpp>
 #include <tao/pegtl/contrib/print.hpp>
-#include <tao/pegtl/contrib/trace.hpp>
 
 #include "flexi_cfg/config/actions.h"
 #include "flexi_cfg/config/classes.h"
 #include "flexi_cfg/config/exceptions.h"
 #include "flexi_cfg/config/grammar.h"
 #include "flexi_cfg/config/helpers.h"
+#include "flexi_cfg/config/trace.h"
 #include "flexi_cfg/logger.h"
 #include "flexi_cfg/parser.h"
 #include "flexi_cfg/reader.h"
@@ -34,21 +34,33 @@ template <typename INPUT>
 auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
   bool success = true;
   try {
-    #ifdef VERBOSE_DEBUG_ACTIONS
 
-//    std::stringstream ss;
-//    peg::print_debug<flexi_cfg::config::grammar>(ss);
-//    flexi_cfg::logger::trace("Grammar:\n{}\n\n======\n\n", ss.str());
+// 0 = production mode (no debug logging)
+// 1 = DEBUG print actions
+// 2 = 1 + tracer
+// 3 = 2 + print grammar
+// 4 = print grammar
 
-//    success = peg::complete_trace<flexi_cfg::config::grammar, flexi_cfg::config::action,
-//                         flexi_cfg::config::control>(input, output);
+#if VERBOSE_DEBUG_ACTIONS >= 3
+
+    std::stringstream ss;
+    peg::print_debug<flexi_cfg::config::grammar>(ss);
+    flexi_cfg::logger::trace("Grammar:\n{}\n\n======\n\n", ss.str());
+
+#endif
+
+#if VERBOSE_DEBUG_ACTIONS > 1 && VERBOSE_DEBUG_ACTIONS < 4
+
+    success = flexi_cfg::peg_extensions::complete_trace<
+        flexi_cfg::config::grammar, flexi_cfg::config::action, flexi_cfg::config::control>(input,
+                                                                                           output);
+
+#else
 
     success = peg::parse<flexi_cfg::config::grammar, flexi_cfg::config::action,
                          flexi_cfg::config::control>(input, output);
-    #else
-    success = peg::parse<flexi_cfg::config::grammar, flexi_cfg::config::action,
-                         flexi_cfg::config::control>(input, output);
-    #endif
+
+#endif
     // If parsing is successful, all of these containers should be empty (consumed into
     // 'output.cfg_res').
     success &= output.keys.empty();
@@ -62,7 +74,7 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
 
     if (!success) {
       const auto position = input.position();
-      flexi_cfg::logger::critical("  Parse failure (nested)");
+      flexi_cfg::logger::critical("  Parse failure (nested?)");
       flexi_cfg::logger::error("  cfg_res size: {}", output.cfg_res.size());
 
       std::stringstream ss;
@@ -76,23 +88,21 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
       return success;
     }
   } catch (const peg::parse_error& e) {
-//    exit(EXIT_FAILURE);
+    //    exit(EXIT_FAILURE);
 
     success = false;
     flexi_cfg::logger::critical("!!!");
-    flexi_cfg::logger::critical("  Parser failure: {}", e.what());
-
+    flexi_cfg::logger::critical("  Parser failure:\n{}", e.what());
+    flexi_cfg::logger::critical("Backtrace:");
     for (const auto p : e.positions()) {
       flexi_cfg::logger::critical("{}", input.line_at(p));
       flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
       flexi_cfg::logger::critical("{}", to_string(p));
     }
-
     std::stringstream ss;
     output.print(ss);
     flexi_cfg::logger::critical("Partial output: \n{}", ss.str());
     flexi_cfg::logger::critical("!!!");
-
   }
 
   return success;
