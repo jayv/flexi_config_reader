@@ -199,7 +199,7 @@ struct config_fields
 // struct CONFIG : peg::seq<TAIL, peg::not_at<peg::eolf>, includes, config_fields, TAIL> {};
 struct CONFIG : peg::seq<TAIL, includes, TAIL, config_fields, TAIL> {};
 
-struct grammar : peg::must<peg::seq<CONFIG, peg::eof>> {};
+struct grammar : peg::seq<CONFIG, peg::eof> {};
 
 // Custom error messages for rules
 template <typename>
@@ -216,7 +216,7 @@ template <> inline constexpr auto error_message<grammar> = "Invalid config file 
 template <> inline constexpr auto error_message<PROTOc> = "expected a proto-pair, struct or reference";
 template <> inline constexpr auto error_message<REFc> = "expected a variable definition or a added variable";
 template <> inline constexpr auto error_message<STRUCTc> = "expected a pair, struct or reference";
-template <> inline constexpr auto error_message<CONFIG> = "invalid config structure";
+
 template <> inline constexpr auto error_message<filename::FILENAME> = "invalid filename";
 //template <> inline constexpr auto error_message<peg::eof> = "expected end of file";
 //template <> inline constexpr auto error_message<peg::eolf> = "expected end of line/file";
@@ -227,7 +227,8 @@ template <> inline constexpr auto error_message<filename::FILENAME> = "invalid f
 ////template <> inline constexpr auto error_message<WS_> = "expected whitespace (why are we here?)";
 template <> inline constexpr auto error_message<TAIL> = "expected a comment (why are we here?)";
 //template <> inline constexpr auto error_message<tao::pegtl::seq<flexi_cfg::config::CONFIG, tao::pegtl::eolf>> = "expected a valid config";
-template <> inline constexpr auto error_message<tao::pegtl::seq<flexi_cfg::config::CONFIG, tao::pegtl::eof>> = "expected a valid config";
+template <> inline constexpr auto error_message<flexi_cfg::config::CONFIG> = "expected a valid config";
+template <> inline constexpr auto error_message<tao::pegtl::eof> = "characters past EOF?";
 // clang-format on
 
 // As must_if can not take error_message as a template parameter directly, we need to wrap it:

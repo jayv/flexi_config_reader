@@ -40,7 +40,10 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
 //    peg::print_debug<flexi_cfg::config::grammar>(ss);
 //    flexi_cfg::logger::trace("Grammar:\n{}\n\n======\n\n", ss.str());
 
-    success = peg::complete_trace<flexi_cfg::config::grammar, flexi_cfg::config::action,
+//    success = peg::complete_trace<flexi_cfg::config::grammar, flexi_cfg::config::action,
+//                         flexi_cfg::config::control>(input, output);
+
+    success = peg::parse<flexi_cfg::config::grammar, flexi_cfg::config::action,
                          flexi_cfg::config::control>(input, output);
     #else
     success = peg::parse<flexi_cfg::config::grammar, flexi_cfg::config::action,
@@ -65,7 +68,7 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
       std::stringstream ss;
       output.print(ss);
       flexi_cfg::logger::error("Incomplete output: \n{}", ss.str());
-      flexi_cfg::logger::error("Error at: {}", position);
+      flexi_cfg::logger::error("Error at: {}", to_string(position));
 
       // Print a trace if a failure occured.
       // input.restart();
@@ -82,7 +85,7 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
     for (const auto p : e.positions()) {
       flexi_cfg::logger::critical("{}", input.line_at(p));
       flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
-      flexi_cfg::logger::critical("{}", p);
+      flexi_cfg::logger::critical("{}", to_string(p));
     }
 
     std::stringstream ss;
