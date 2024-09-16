@@ -115,7 +115,7 @@ struct tracer {
     m_stack.pop_back();
     update_line.pop();
     std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_success << "success"
-              << in.position() << TracerTraits::ansi_reset;
+              << TracerTraits::ansi_reset;
     if (m_count != prev) {
       std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>()
                 << TracerTraits::ansi_reset;
@@ -166,14 +166,16 @@ struct tracer {
   template <typename Rule, typename ParseInput, typename... States>
   void apply(const ParseInput& /*unused*/, States&&... /*unused*/) {
     std::cerr << std::setw(static_cast<int>(indent() - TracerTraits::indent_increment)) << ' '
-              << TracerTraits::ansi_apply << "apply" << TracerTraits::ansi_reset << '\n';
+              << TracerTraits::ansi_apply << "apply " << TracerTraits::ansi_hide << demangle<Rule>()
+              << TracerTraits::ansi_reset << '\n';
     print_position();
   }
 
   template <typename Rule, typename ParseInput, typename... States>
   void apply0(const ParseInput& /*unused*/, States&&... /*unused*/) {
     std::cerr << std::setw(static_cast<int>(indent() - TracerTraits::indent_increment)) << ' '
-              << TracerTraits::ansi_apply << "apply0" << TracerTraits::ansi_reset << '\n';
+              << TracerTraits::ansi_apply << "apply0 " << TracerTraits::ansi_hide
+              << demangle<Rule>() << TracerTraits::ansi_reset << '\n';
     print_position();
   }
 
