@@ -37,9 +37,6 @@ namespace config {
 
 struct SP : peg::plus<peg::blank> {};
 struct SP0 : peg::star<peg::blank> {};
-struct COMMENT : peg::seq<peg::one<'#'>, peg::until<peg::eol>> {};
-//struct TAIL : peg::star<peg::blank, peg::sor<COMMENT, peg::until<peg::at<peg::eol>, peg::blank> {};
-struct TAIL : peg::star<peg::sor<COMMENT, peg::eol, peg::blank>> {};
 
 // A rule for padding another rule with blanks on either side
 template <typename Rule>
@@ -92,6 +89,10 @@ struct FALSE : TAO_PEGTL_KEYWORD("false") {};
 struct BOOLEAN : peg::sor<TRUE, FALSE> {};
 
 struct STRING : peg::seq<peg::one<'"'>, peg::plus<peg::not_one<'"'>>, peg::one<'"'>> {};
+
+struct COMMENT : peg::seq<peg::one<'#'>, peg::until<peg::eol>> {};
+//struct TAIL : peg::star<peg::blank, peg::sor<COMMENT, peg::until<peg::at<peg::eol>, peg::blank> {};
+struct TAIL : peg::star<peg::sor<COMMENT, peg::eol, peg::blank>> {};
 
 struct LIST;
 struct VALUE_LOOKUP;
@@ -147,7 +148,7 @@ struct PROTO_PAIR
 
 // A rule for defining struct-like objects
 template <typename Start, typename Content>
-struct STRUCT_LIKE : peg::seq<Start, peg::if_must<CBo, Content, CBc>, TAIL> {};
+struct STRUCT_LIKE : peg::seq<Start, CBo, TAIL, Content, TAIL, CBc, TAIL> {};
 
 struct REFs : peg::seq<REFk, SP, FLAT_KEY, SP, ASk, SP, KEY> {};
 struct REFc : peg::star<peg::sor<REF_VARDEF, REF_ADDKVP>> {};
