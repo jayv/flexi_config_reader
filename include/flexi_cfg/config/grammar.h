@@ -166,7 +166,7 @@ struct STRUCT : STRUCT_LIKE<STRUCTs, STRUCTc> {};
 struct STRUCT_IN_PROTO : STRUCT_LIKE<STRUCTs, PROTOc> {};
 
 struct PROTOc : peg::plus<peg::sor<PROTO_PAIR, STRUCT_IN_PROTO, REFERENCE>> {};
-struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO, peg::raise<STRUCTc>>> {};
+struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>> {};
 
 // Include syntax
 struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::FILENAME, TAIL> {};
@@ -198,7 +198,7 @@ struct config_fields
     : peg::opt<peg::sor<peg::seq<peg::not_at<PAIR>, peg::plus<FULLPAIR>>, STRUCTc>> {};
 
 // struct CONFIG : peg::seq<TAIL, peg::not_at<peg::eolf>, includes, config_fields, TAIL> {};
-struct CONFIG : peg::seq<TAIL, includes, TAIL, config_fields, TAIL> {};
+struct CONFIG : peg::seq<TAIL, includes, config_fields> {};
 
 struct grammar : peg::seq<peg::must<CONFIG>, peg::eof> {};
 

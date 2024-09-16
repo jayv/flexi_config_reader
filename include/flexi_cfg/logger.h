@@ -57,13 +57,13 @@ class Logger {
   Severity log_level_{Severity::INFO};
 
   const std::map<Severity, fmt::text_style> fg_color_ = {
-      {Severity::TRACE, fmt::fg(fmt::color::magenta)},
-      {Severity::DEBUG, fmt::fg(fmt::color::cyan)},
-      {Severity::INFO, fmt::fg(fmt::color::green)},
-      {Severity::WARN, fmt::fg(fmt::color::gold)},
-      {Severity::ERROR, fmt::fg(fmt::color::red)},
+      {Severity::TRACE, fmt::fg(fmt::terminal_color::bright_blue)},
+      {Severity::DEBUG, fmt::fg(fmt::terminal_color::bright_green)},
+      {Severity::INFO, fmt::fg(fmt::terminal_color::bright_white)},
+      {Severity::WARN, fmt::fg(fmt::terminal_color::bright_yellow)},
+      {Severity::ERROR, fmt::fg(fmt::terminal_color::bright_magenta)},
       {Severity::CRITICAL,
-       fmt::emphasis::bold | fmt::bg(fmt::color::red) | fmt::fg(fmt::color::white)}};
+       fmt::emphasis::bold | fmt::fg(fmt::terminal_color::bright_red)}};
 
   // This container holds a history of messages to provide a type of "backtrace" functionality
   std::size_t max_history_{15};  // NOLINT
@@ -127,7 +127,7 @@ static void critical(std::string_view msg) { Logger::instance().log(Severity::CR
 
 template <>
 struct fmt::formatter<flexi_cfg::logger::Severity> : formatter<std::string_view> {
-  // parse is inherited from formatter<string_view>  
+  // parse is inherited from formatter<string_view>
   auto format(const flexi_cfg::logger::Severity& severity, format_context& ctx) {
     const auto severity_s = magic_enum::enum_name<flexi_cfg::logger::Severity>(severity);
     return formatter<std::string_view>::format(severity_s, ctx);

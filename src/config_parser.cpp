@@ -81,7 +81,7 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
 
     success = false;
     flexi_cfg::logger::critical("!!!");
-    flexi_cfg::logger::critical("  Parser failure:\n{}", e.message());
+    flexi_cfg::logger::critical("  Parser failure: <<< {} >>>", e.message());
     flexi_cfg::logger::critical("Backtrace:");
     for (const auto p : e.positions()) {
       if (auto other_input = output.all_files.find(p.source); other_input != output.all_files.end()) {

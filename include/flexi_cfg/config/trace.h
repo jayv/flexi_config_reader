@@ -29,25 +29,26 @@ namespace flexi_cfg::peg_extensions {
 
 using namespace peg;
 
-template <bool HideInternal = false, bool UseColor = true, std::size_t IndentIncrement = 2,
+template <bool HideInternal = true, bool UseColor = true, std::size_t IndentIncrement = 2,
           std::size_t InitialIndent = 8>
 struct tracer_traits {
   template <typename Rule>
-  static constexpr bool enable = true;//!HideInternal || normal<Rule>::enable;
+  static constexpr bool enable = !HideInternal || normal<Rule>::enable;
 
   static constexpr std::size_t initial_indent = InitialIndent;
   static constexpr std::size_t indent_increment = IndentIncrement;
 
-  static constexpr std::string_view ansi_reset = UseColor ? "\033[m" : "";
-  static constexpr std::string_view ansi_rule = UseColor ? "\033[36m" : "";
-  static constexpr std::string_view ansi_hide = UseColor ? "\033[37m" : "";
+  //  static constexpr std::string_view ansi_reset = UseColor ? "\033[m" : "";
+  static constexpr std::string_view ansi_rule = UseColor ? "\033[38;5;30m" : "";
+  static constexpr std::string_view ansi_hide = UseColor ? "\033[48;5;0m\033[38;5;102m" : "";
 
-  static constexpr std::string_view ansi_position = UseColor ? "\033[1;34m" : "";
-  static constexpr std::string_view ansi_success = UseColor ? "\033[32m" : "";
-  static constexpr std::string_view ansi_failure = UseColor ? "\033[31m" : "";
-  static constexpr std::string_view ansi_raise = UseColor ? "\033[1;31m" : "";
-  static constexpr std::string_view ansi_unwind = UseColor ? "\033[31m" : "";
-  static constexpr std::string_view ansi_apply = UseColor ? "\033[1;36m" : "";
+  static constexpr std::string_view ansi_position = UseColor ? "\033[38;5;32m" : "";
+  static constexpr std::string_view ansi_success = UseColor ? "\033[48;5;118m\033[38;5;0m" : "";
+  static constexpr std::string_view ansi_failure = UseColor ? "\033[38;5;124m" : "";
+  static constexpr std::string_view ansi_raise = UseColor ? "\033[48;5;196m\033[38;5;0m" : "";
+  static constexpr std::string_view ansi_unwind = UseColor ? "\033[38;5;17m" : "";
+  static constexpr std::string_view ansi_apply = UseColor ? "\033[48;5;129m\033[38;5;0m" : "";
+  static constexpr std::string_view ansi_print = UseColor ? "\033[48;5;0m\033[38;5;450m" : "";
 };
 
 using standard_tracer_traits = tracer_traits<true>;
@@ -61,12 +62,15 @@ struct tracer {
   peg::position m_position;
   std::string m_line;
   std::stack<std::function<void()>> update_line;
+  std::string ansi_reset = "";
 
   template <typename Rule>
   static constexpr bool enable = TracerTraits::template enable<Rule>;
 
   template <typename ParseInput>
-  explicit tracer(const ParseInput& in) : m_flags(std::cerr.flags()), m_position(in.position()) {
+  explicit tracer(const ParseInput& in, int nested = 0)
+      : m_flags(std::cerr.flags()), m_position(in.position()) {
+    ansi_reset = fmt::format("\033[48;5;{}m", 232 + nested * 5);
     std::cerr << std::left;
     update_line.emplace([&]() { m_line = in.line_at(m_position); });
     update_line.top()();
@@ -87,9 +91,10 @@ struct tracer {
 
   void print_position() const {
     std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_position << "position"
-              << TracerTraits::ansi_reset << ' ' << m_position << '\n';
-    std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_position << "input    [" << m_line
-              << "]" << TracerTraits::ansi_reset << "\n";
+              << ' ' << m_position << '\n';
+    std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_position << "input    "
+              << TracerTraits::ansi_apply << "[" << ansi_reset << TracerTraits::ansi_print
+              << m_line << TracerTraits::ansi_apply << "]" << ansi_reset << "\n";
   }
 
   void update_position(const position& p) {
@@ -104,7 +109,7 @@ struct tracer {
   void start(const ParseInput& in, States&&... /*unused*/) {
     update_line.emplace([&]() { m_line = in.line_at(m_position); });
     std::cerr << '#' << std::setw(indent() - 1) << ++m_count << TracerTraits::ansi_rule
-              << demangle<Rule>() << TracerTraits::ansi_reset << '\n';
+              << demangle<Rule>() << ansi_reset << '\n';
     m_stack.push_back(m_count);
     update_position(in.position());
   }
@@ -115,10 +120,9 @@ struct tracer {
     m_stack.pop_back();
     update_line.pop();
     std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_success << "success"
-              << TracerTraits::ansi_reset;
+              << ansi_reset;
     if (m_count != prev) {
-      std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>()
-                << TracerTraits::ansi_reset;
+      std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>() << ansi_reset;
     }
     std::cerr << '\n';
     update_position(in.position());
@@ -130,10 +134,9 @@ struct tracer {
     m_stack.pop_back();
     update_line.pop();
     std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_failure << "failure"
-              << in.position() <<  TracerTraits::ansi_reset;
+              << in.position() << ansi_reset;
     if (m_count != prev) {
-      std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>()
-                << TracerTraits::ansi_reset;
+      std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>() << ansi_reset;
     }
     std::cerr << '\n';
     update_position(in.position());
@@ -141,11 +144,8 @@ struct tracer {
 
   template <typename Rule, typename ParseInput, typename... States>
   void raise(const ParseInput& /*unused*/, States&&... /*unused*/) {
-    std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_raise << "raise"
-              << TracerTraits::ansi_reset << ' ' << TracerTraits::ansi_rule << demangle<Rule>()
-              << TracerTraits::ansi_reset << '\n';
-
-
+    std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_raise << "raise" << ansi_reset
+              << ' ' << TracerTraits::ansi_rule << demangle<Rule>() << ansi_reset << '\n';
   }
 
   template <typename Rule, typename ParseInput, typename... States>
@@ -153,11 +153,9 @@ struct tracer {
     const auto prev = m_stack.back();
     m_stack.pop_back();
     update_line.pop();
-    std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_unwind << "unwind"
-              << TracerTraits::ansi_reset;
+    std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_unwind << "unwind" << ansi_reset;
     if (m_count != prev) {
-      std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>()
-                << TracerTraits::ansi_reset;
+      std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>() << ansi_reset;
     }
     std::cerr << '\n';
     update_position(in.position());
@@ -166,8 +164,8 @@ struct tracer {
   template <typename Rule, typename ParseInput, typename... States>
   void apply(const ParseInput& /*unused*/, States&&... /*unused*/) {
     std::cerr << std::setw(static_cast<int>(indent() - TracerTraits::indent_increment)) << ' '
-              << TracerTraits::ansi_apply << "apply " << TracerTraits::ansi_hide << demangle<Rule>()
-              << TracerTraits::ansi_reset << '\n';
+              << TracerTraits::ansi_apply << "apply " << ansi_reset <<
+        TracerTraits::ansi_hide << demangle<Rule>() << ansi_reset << '\n';
     print_position();
   }
 
@@ -175,7 +173,7 @@ struct tracer {
   void apply0(const ParseInput& /*unused*/, States&&... /*unused*/) {
     std::cerr << std::setw(static_cast<int>(indent() - TracerTraits::indent_increment)) << ' '
               << TracerTraits::ansi_apply << "apply0 " << TracerTraits::ansi_hide
-              << demangle<Rule>() << TracerTraits::ansi_reset << '\n';
+              << demangle<Rule>() << ansi_reset << '\n';
     print_position();
   }
 
@@ -203,11 +201,11 @@ bool complete_trace(ParseInput&& in, States&&... st) {
 
 template <typename Rule, template <typename...> class Action = nothing,
           template <typename...> class Control = normal, typename Outer, typename ParseInput,
-          typename... States>
-auto complete_trace_nested(const Outer& o, ParseInput&& in, States&&... st) {
-  tracer<complete_tracer_traits> tr(in);
+          typename ActionData, typename... States>
+auto complete_trace_nested(const Outer& o, ParseInput&& in, ActionData&& out, States&&... st) {
+  tracer<complete_tracer_traits> tr(in, out.all_files.size());
   try {
-    return tr.parse<Rule, Action, Control>(in, st...);
+    return tr.parse<Rule, Action, Control>(in, out, st...);
   } catch (parse_error& e) {
     e.add_position(internal::get_position(o));
     throw;
