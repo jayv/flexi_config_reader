@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Jo Voordeckers
 // Copyright (c) 2020-2022 Dr. Colin Hirsch and Daniel Frey
 // Please see LICENSE for license or visit https://github.com/taocpp/PEGTL/
-// This is largely based on with more details, quick hack to make it work
+// Adapted from below, quick and dirty hack to make it work, TODO fix nested parsing
 // https://github.com/taocpp/PEGTL/blob/main/include/tao/pegtl/contrib/trace.hpp
 
 #pragma once
@@ -33,7 +33,7 @@ template <bool HideInternal = false, bool UseColor = true, std::size_t IndentInc
           std::size_t InitialIndent = 8>
 struct tracer_traits {
   template <typename Rule>
-  static constexpr bool enable = !HideInternal || normal<Rule>::enable;
+  static constexpr bool enable = true;//!HideInternal || normal<Rule>::enable;
 
   static constexpr std::size_t initial_indent = InitialIndent;
   static constexpr std::size_t indent_increment = IndentIncrement;
@@ -115,7 +115,7 @@ struct tracer {
     m_stack.pop_back();
     update_line.pop();
     std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_success << "success"
-              << TracerTraits::ansi_reset;
+              << in.position() << TracerTraits::ansi_reset;
     if (m_count != prev) {
       std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>()
                 << TracerTraits::ansi_reset;
@@ -130,7 +130,7 @@ struct tracer {
     m_stack.pop_back();
     update_line.pop();
     std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_failure << "failure"
-              << TracerTraits::ansi_reset;
+              << in.position() <<  TracerTraits::ansi_reset;
     if (m_count != prev) {
       std::cerr << " #" << prev << ' ' << TracerTraits::ansi_hide << demangle<Rule>()
                 << TracerTraits::ansi_reset;
@@ -144,6 +144,8 @@ struct tracer {
     std::cerr << std::setw(indent()) << ' ' << TracerTraits::ansi_raise << "raise"
               << TracerTraits::ansi_reset << ' ' << TracerTraits::ansi_rule << demangle<Rule>()
               << TracerTraits::ansi_reset << '\n';
+
+
   }
 
   template <typename Rule, typename ParseInput, typename... States>
@@ -165,12 +167,14 @@ struct tracer {
   void apply(const ParseInput& /*unused*/, States&&... /*unused*/) {
     std::cerr << std::setw(static_cast<int>(indent() - TracerTraits::indent_increment)) << ' '
               << TracerTraits::ansi_apply << "apply" << TracerTraits::ansi_reset << '\n';
+    print_position();
   }
 
   template <typename Rule, typename ParseInput, typename... States>
   void apply0(const ParseInput& /*unused*/, States&&... /*unused*/) {
     std::cerr << std::setw(static_cast<int>(indent() - TracerTraits::indent_increment)) << ' '
               << TracerTraits::ansi_apply << "apply0" << TracerTraits::ansi_reset << '\n';
+    print_position();
   }
 
   template <typename Rule, template <typename...> class Action = nothing,

@@ -39,7 +39,7 @@ struct SP : peg::plus<peg::blank> {};
 struct SP0 : peg::star<peg::blank> {};
 struct COMMENT : peg::seq<peg::one<'#'>, peg::until<peg::eol>> {};
 //struct TAIL : peg::star<peg::blank, peg::sor<COMMENT, peg::until<peg::at<peg::eol>, peg::blank> {};
-struct TAIL : peg::star<SP0, peg::sor<peg::eol, COMMENT>> {};
+struct TAIL : peg::star<peg::sor<COMMENT, peg::eol, peg::blank>> {};
 
 // A rule for padding another rule with blanks on either side
 template <typename Rule>
@@ -125,7 +125,7 @@ struct VALUE_LOOKUP : peg::seq<TAO_PEGTL_STRING("$("), peg::list<peg::sor<KEY, V
 struct PROTO_LIST_ELEMENT : peg::sor<VALUE, VAR> {};
 struct PROTO_LIST_CONTENT : peg::list_must<PROTO_LIST_ELEMENT, COMMA, peg::space> {};
 // Should the 'space' here be a 'blank'? Allow multi-line lists (w/o \)?
-struct PROTO_LIST : peg::if_must<SBo, TAIL, PROTO_LIST_CONTENT, TAIL, SBc> {
+struct PROTO_LIST : peg::if_must<SBo, PROTO_LIST_CONTENT, SBc> {
   using begin = SBo;
   using end = SBc;
   using element = PROTO_LIST_ELEMENT;
@@ -147,7 +147,7 @@ struct PROTO_PAIR
 
 // A rule for defining struct-like objects
 template <typename Start, typename Content>
-struct STRUCT_LIKE : peg::seq<Start, peg::if_must<CBo, TAIL, Content, TAIL, CBc>, TAIL> {};
+struct STRUCT_LIKE : peg::seq<Start, peg::if_must<CBo, Content, CBc>, TAIL> {};
 
 struct REFs : peg::seq<REFk, SP, FLAT_KEY, SP, ASk, SP, KEY> {};
 struct REFc : peg::star<peg::sor<REF_VARDEF, REF_ADDKVP>> {};
@@ -165,7 +165,7 @@ struct STRUCT : STRUCT_LIKE<STRUCTs, STRUCTc> {};
 struct STRUCT_IN_PROTO : STRUCT_LIKE<STRUCTs, PROTOc> {};
 
 struct PROTOc : peg::plus<peg::sor<PROTO_PAIR, STRUCT_IN_PROTO, REFERENCE>> {};
-struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>, TAIL> {};
+struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>> {};
 
 // Include syntax
 struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::FILENAME, TAIL> {};

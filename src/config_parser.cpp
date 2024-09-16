@@ -1,9 +1,6 @@
 #include <fmt/format.h>
-#include <fmt/ranges.h>
 
-#include <algorithm>
 #include <filesystem>
-#include <memory>
 #include <range/v3/action/remove_if.hpp>
 #include <range/v3/action/reverse.hpp>
 #include <range/v3/action/sort.hpp>
@@ -14,18 +11,23 @@
 #include <set>
 #include <sstream>
 #include <tao/pegtl.hpp>
-#include <tao/pegtl/contrib/print.hpp>
 
 #include "flexi_cfg/config/actions.h"
 #include "flexi_cfg/config/classes.h"
 #include "flexi_cfg/config/exceptions.h"
 #include "flexi_cfg/config/grammar.h"
 #include "flexi_cfg/config/helpers.h"
+#ifdef VERBOSE_PARSE_TRACE
 #include "flexi_cfg/config/trace.h"
+#endif
+#ifdef VERBOSE_PRINT_GRAMMAR
+#include <tao/pegtl/contrib/print.hpp>
+#endif
 #include "flexi_cfg/logger.h"
 #include "flexi_cfg/parser.h"
 #include "flexi_cfg/reader.h"
 #include "flexi_cfg/utils.h"
+
 
 namespace {
 constexpr bool STRIP_PROTOS{true};
@@ -34,33 +36,21 @@ template <typename INPUT>
 auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
   bool success = true;
   try {
+    namespace fcc = flexi_cfg::config;
+    namespace fext = flexi_cfg::peg_extensions;
 
-// 0 = production mode (no debug logging)
-// 1 = DEBUG print actions
-// 2 = 1 + tracer
-// 3 = 2 + print grammar
-// 4 = print grammar
-
-#if VERBOSE_DEBUG_ACTIONS >= 3
-
+#ifdef VERBOSE_PRINT_GRAMMAR
     std::stringstream ss;
-    peg::print_debug<flexi_cfg::config::grammar>(ss);
+    peg::print_debug<fcc::grammar>(ss);
     flexi_cfg::logger::trace("Grammar:\n{}\n\n======\n\n", ss.str());
-
 #endif
 
-#if VERBOSE_DEBUG_ACTIONS > 1 && VERBOSE_DEBUG_ACTIONS < 4
-
-    success = flexi_cfg::peg_extensions::complete_trace<
-        flexi_cfg::config::grammar, flexi_cfg::config::action, flexi_cfg::config::control>(input,
-                                                                                           output);
-
+#ifdef VERBOSE_PARSE_TRACE
+    success = fext::complete_trace<fcc::grammar, fcc::action, fcc::control>(input, output);
 #else
-
-    success = peg::parse<flexi_cfg::config::grammar, flexi_cfg::config::action,
-                         flexi_cfg::config::control>(input, output);
-
+    success = peg::parse<fcc::grammar, fcc::action, fcc::control>(input, output);
 #endif
+
     // If parsing is successful, all of these containers should be empty (consumed into
     // 'output.cfg_res').
     success &= output.keys.empty();

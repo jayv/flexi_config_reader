@@ -32,7 +32,9 @@
 #define CONFIG_ACTION_TRACE(MSG_F, ...) \
   logger::trace("{}" MSG_F, std::string(out.depth * 2UL, ' '), ##__VA_ARGS__);
 
-#define VERBOSE_DEBUG_ACTIONS 2  // NOLINT(cppcoreguidelines-macro-usage)
+#define VERBOSE_DEBUG_ACTIONS 1  // NOLINT(cppcoreguidelines-macro-usage)
+#define VERBOSE_PARSE_TRACE 1    // NOLINT(cppcoreguidelines-macro-usage)
+#define VERBOSE_PRINT_GRAMMAR 1        // NOLINT(cppcoreguidelines-macro-usage)
 
 namespace flexi_cfg::config {
 
