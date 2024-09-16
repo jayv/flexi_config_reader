@@ -45,6 +45,8 @@ constexpr std::string_view DEFAULT_RES{"***"};
 struct ActionData {
   int depth{0};  // Nesting level
 
+  std::unordered_map<std::string, std::filesystem::path> all_files;
+
   std::filesystem::path base_dir{};
   std::string result{DEFAULT_RES};
   std::vector<std::string> keys;
@@ -413,7 +415,7 @@ struct action<INCLUDE> {
 
       namespace fcc = flexi_cfg::config;
       namespace fext = flexi_cfg::peg_extensions;
-
+      out.all_files[include_file.source()] = cfg_file;
 #ifdef VERBOSE_PARSE_TRACE
       fext::complete_trace_nested<fcc::grammar, fcc::action, fcc::control>(in.position(), include_file, out);
 #else
@@ -444,7 +446,7 @@ struct action<INCLUDE_RELATIVE> {
 
       namespace fcc = flexi_cfg::config;
       namespace fext = flexi_cfg::peg_extensions;
-
+      out.all_files[include_file.source()] = cfg_file;
 #ifdef VERBOSE_PARSE_TRACE
       fext::complete_trace_nested<fcc::grammar, fcc::action, fcc::control>(in.position(), include_file, out);
 #else

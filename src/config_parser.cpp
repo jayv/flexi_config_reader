@@ -38,7 +38,6 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
   try {
     namespace fcc = flexi_cfg::config;
     namespace fext = flexi_cfg::peg_extensions;
-
 #ifdef VERBOSE_PRINT_GRAMMAR
     std::stringstream ss;
     peg::print_debug<fcc::grammar>(ss);
@@ -83,11 +82,16 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
     success = false;
     flexi_cfg::logger::critical("!!!");
     flexi_cfg::logger::critical("  Parser failure:\n{}", e.message());
-    flexi_cfg::logger::critical("{}", input.line_at(e.positions().front()));
     flexi_cfg::logger::critical("Backtrace:");
     for (const auto p : e.positions()) {
-      // TODO(jayv) capture the nested inputs for nice error prop
-      flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
+      if (auto other_input = output.all_files.find(p.source); other_input != output.all_files.end()) {
+        peg::file_input cfg_file(other_input->second);
+        flexi_cfg::logger::critical("{}",  cfg_file.line_at(p));
+        flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
+      } else {
+        flexi_cfg::logger::critical("{}", input.line_at(p));
+        flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
+      }
       flexi_cfg::logger::critical("{}", to_string(p));
     }
     std::stringstream ss;

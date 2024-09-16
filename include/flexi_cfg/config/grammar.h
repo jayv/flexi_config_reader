@@ -159,14 +159,14 @@ struct PROTOs : peg::seq<PROTOk, SP, KEY> {};
 struct PROTO : STRUCT_LIKE<PROTOs, PROTOc> {};
 
 struct STRUCTc;
-struct STRUCTs : peg::seq<STRUCTk, SP, KEY> {};
+struct STRUCTs : peg::seq<STRUCTk, SP, peg::must<KEY>> {};
 struct STRUCT : STRUCT_LIKE<STRUCTs, STRUCTc> {};
 
 // Special definition of a struct contained in a proto
 struct STRUCT_IN_PROTO : STRUCT_LIKE<STRUCTs, PROTOc> {};
 
 struct PROTOc : peg::plus<peg::sor<PROTO_PAIR, STRUCT_IN_PROTO, REFERENCE>> {};
-struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>> {};
+struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO, peg::raise<STRUCTc>>> {};
 
 // Include syntax
 struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::FILENAME, TAIL> {};
@@ -200,7 +200,7 @@ struct config_fields
 // struct CONFIG : peg::seq<TAIL, peg::not_at<peg::eolf>, includes, config_fields, TAIL> {};
 struct CONFIG : peg::seq<TAIL, includes, TAIL, config_fields, TAIL> {};
 
-struct grammar : peg::seq<CONFIG, peg::eof> {};
+struct grammar : peg::seq<peg::must<CONFIG>, peg::eof> {};
 
 // Custom error messages for rules
 template <typename>
@@ -217,6 +217,7 @@ template <> inline constexpr auto error_message<grammar> = "Invalid config file 
 template <> inline constexpr auto error_message<PROTOc> = "expected a proto-pair, struct or reference";
 template <> inline constexpr auto error_message<REFc> = "expected a variable definition or a added variable";
 template <> inline constexpr auto error_message<STRUCTc> = "expected a pair, struct or reference";
+template <> inline constexpr auto error_message<KEY> = "invalid identifier";
 
 template <> inline constexpr auto error_message<filename::FILENAME> = "invalid filename";
 //template <> inline constexpr auto error_message<peg::eof> = "expected end of file";
@@ -234,8 +235,8 @@ template <> inline constexpr auto error_message<tao::pegtl::eof> = "characters p
 
 // As must_if can not take error_message as a template parameter directly, we need to wrap it:
 struct error {
-  //  template <typename Rule>
-  //  static constexpr bool raise_on_failure = true;
+  template <typename Rule>
+  static constexpr bool raise_on_failure = false;
   template <typename Rule>
   static constexpr auto message = error_message<Rule>;
 };
