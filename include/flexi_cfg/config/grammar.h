@@ -26,8 +26,6 @@ struct ENVIRONMENT_VAR : peg::seq<peg::one<'$'>, peg::one<'{'>,
 struct FILEPART : peg::sor<ENVIRONMENT_VAR, DOTDOT, ALPHAPLUS> {};
 struct FILENAME : peg::seq<peg::list<FILEPART, SEP>, EXT> {};
 
-struct grammar : peg::must<FILENAME> {};
-
 }  // namespace filename
 
 // Pre-declare the top level rule for the math grammar here.
@@ -37,10 +35,12 @@ struct expression;
 
 namespace config {
 
-struct WS_ : peg::star<peg::space> {};
 struct SP : peg::plus<peg::blank> {};
-struct COMMENT : peg::seq<peg::one<'#'>, peg::until<peg::eol>, WS_> {};
-struct TAIL : peg::seq<WS_, peg::star<COMMENT>> {};
+struct SP0 : peg::star<peg::blank> {};
+struct COMMENT : peg::seq<peg::one<'#'>, peg::until<peg::eol>> {};
+//struct TAIL : peg::star<peg::blank, peg::sor<COMMENT, peg::until<peg::at<peg::eol>, peg::blank> {};
+struct TAIL : peg::star<SP0, peg::sor<peg::eol, COMMENT>> {};
+
 // A rule for padding another rule with blanks on either side
 template <typename Rule>
 struct pd : peg::pad<Rule, peg::blank> {};
@@ -100,7 +100,7 @@ struct VALUE : peg::sor<HEX, NUMBER, STRING, BOOLEAN, VALUE_LOOKUP, LIST> {};
 struct LIST_ELEMENT : peg::seq<VALUE> {};
 struct LIST_CONTENT : peg::list<LIST_ELEMENT, COMMA, peg::space> {};
 // Should the 'space' here be a 'blank'? Allow multi-line lists (w/o \)?
-struct LIST : peg::seq<SBo, WS_, LIST_CONTENT, WS_, SBc> {
+struct LIST : peg::seq<SBo, TAIL, LIST_CONTENT, TAIL, SBc> {
   using begin = SBo;
   using end = SBc;
   using element = LIST_ELEMENT;
@@ -125,7 +125,7 @@ struct VALUE_LOOKUP : peg::seq<TAO_PEGTL_STRING("$("), peg::list<peg::sor<KEY, V
 struct PROTO_LIST_ELEMENT : peg::sor<VALUE, VAR> {};
 struct PROTO_LIST_CONTENT : peg::list_must<PROTO_LIST_ELEMENT, COMMA, peg::space> {};
 // Should the 'space' here be a 'blank'? Allow multi-line lists (w/o \)?
-struct PROTO_LIST : peg::if_must<SBo, WS_, PROTO_LIST_CONTENT, WS_, SBc> {
+struct PROTO_LIST : peg::if_must<SBo, TAIL, PROTO_LIST_CONTENT, TAIL, SBc> {
   using begin = SBo;
   using end = SBc;
   using element = PROTO_LIST_ELEMENT;
@@ -168,15 +168,15 @@ struct PROTOc : peg::plus<peg::sor<PROTO_PAIR, STRUCT_IN_PROTO, REFERENCE>> {};
 struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>> {};
 
 // Include syntax
-struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::grammar, TAIL> {};
+struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::FILENAME, TAIL> {};
 struct include_list : peg::star<INCLUDE> {};
 
 // Include relative syntax
 struct INCLUDE_RELATIVE
-    : peg::seq<TAO_PEGTL_KEYWORD("include_relative"), SP, filename::grammar, TAIL> {};
+    : peg::seq<TAO_PEGTL_KEYWORD("include_relative"), SP, filename::FILENAME, TAIL> {};
 struct include_relative_list : peg::star<INCLUDE_RELATIVE> {};
 
-struct includes : peg::seq<include_list, include_relative_list, TAIL> {};
+struct includes : peg::seq<include_list, include_relative_list> {};
 
 // A single file should look like this:
 //
@@ -196,46 +196,44 @@ struct includes : peg::seq<include_list, include_relative_list, TAIL> {};
 struct config_fields
     : peg::opt<peg::sor<peg::seq<peg::not_at<PAIR>, peg::plus<FULLPAIR>>, STRUCTc>> {};
 
-struct CONFIG : peg::seq<TAIL, peg::not_at<peg::eolf>, includes, config_fields, TAIL> {};
+// struct CONFIG : peg::seq<TAIL, peg::not_at<peg::eolf>, includes, config_fields, TAIL> {};
+struct CONFIG : peg::seq<TAIL, includes, TAIL, config_fields, TAIL> {};
 
-struct grammar : peg::seq<CONFIG, peg::eolf> {};
+struct grammar : peg::must<peg::seq<CONFIG, peg::eof>> {};
 
 // Custom error messages for rules
 template <typename>
 inline constexpr const char* error_message = nullptr;
 
-template <>
-inline constexpr auto error_message<CBc> = "expected a closing '}'";
-template <>
-inline constexpr auto error_message<PROTO_LIST> = "invalid list in 'proto'";
-template <>
-inline constexpr auto error_message<PROTO_LIST_CONTENT> = "invalid list in 'proto'";
-template <>
-inline constexpr auto error_message<PROTO_LIST_ELEMENT> = "invalid element in proto list";
-template <>
-inline constexpr auto error_message<SBc> = "expected a closing ']'";
-template <>
-inline constexpr auto error_message<grammar> = "Invalid config file found!";
+// clang-format off 
+template <> inline constexpr auto error_message<CBc> = "expected a closing '}'";
+template <> inline constexpr auto error_message<PROTO_LIST> = "invalid list in 'proto'";
+template <> inline constexpr auto error_message<PROTO_LIST_CONTENT> = "invalid list in 'proto'";
+template <> inline constexpr auto error_message<PROTO_LIST_ELEMENT> = "invalid element in proto list";
+template <> inline constexpr auto error_message<SBc> = "expected a closing ']'";
+template <> inline constexpr auto error_message<grammar> = "Invalid config file found!";
 
-template <>
-inline constexpr auto error_message<PROTOc> = "expected a proto-pair, struct or reference";
-template <>
-inline constexpr auto error_message<REFc> = "expected a variable definition or a added variable";
-template <>
-inline constexpr auto error_message<STRUCTc> = "expected a pair, struct or reference";
-
-template <>
-inline constexpr auto error_message<filename::FILENAME> = "invalid filename";
-
-template <>
-inline constexpr auto error_message<WS_> = "expected whitespace (why are we here?)";
-template <>
-inline constexpr auto error_message<TAIL> = "expected a comment (why are we here?)";
+template <> inline constexpr auto error_message<PROTOc> = "expected a proto-pair, struct or reference";
+template <> inline constexpr auto error_message<REFc> = "expected a variable definition or a added variable";
+template <> inline constexpr auto error_message<STRUCTc> = "expected a pair, struct or reference";
+template <> inline constexpr auto error_message<CONFIG> = "invalid config structure";
+template <> inline constexpr auto error_message<filename::FILENAME> = "invalid filename";
+//template <> inline constexpr auto error_message<peg::eof> = "expected end of file";
+//template <> inline constexpr auto error_message<peg::eolf> = "expected end of line/file";
+//template <> inline constexpr auto error_message<peg::eol> = "expected end of line";
+//template <> inline constexpr auto error_message<peg::until<peg::eol>> =
+//    "expected statement to continue till end of line";
+//template <> inline constexpr auto error_message<peg::space> = "expected space (why are we here?)";
+////template <> inline constexpr auto error_message<WS_> = "expected whitespace (why are we here?)";
+template <> inline constexpr auto error_message<TAIL> = "expected a comment (why are we here?)";
+//template <> inline constexpr auto error_message<tao::pegtl::seq<flexi_cfg::config::CONFIG, tao::pegtl::eolf>> = "expected a valid config";
+template <> inline constexpr auto error_message<tao::pegtl::seq<flexi_cfg::config::CONFIG, tao::pegtl::eof>> = "expected a valid config";
+// clang-format on
 
 // As must_if can not take error_message as a template parameter directly, we need to wrap it:
 struct error {
-  template <typename Rule>
-  static constexpr bool raise_on_failure = false;
+  //  template <typename Rule>
+  //  static constexpr bool raise_on_failure = true;
   template <typename Rule>
   static constexpr auto message = error_message<Rule>;
 };

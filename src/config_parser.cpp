@@ -14,6 +14,7 @@
 #include <set>
 #include <sstream>
 #include <tao/pegtl.hpp>
+#include <tao/pegtl/contrib/print.hpp>
 #include <tao/pegtl/contrib/trace.hpp>
 
 #include "flexi_cfg/config/actions.h"
@@ -33,8 +34,18 @@ template <typename INPUT>
 auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
   bool success = true;
   try {
-    success = peg::parse<peg::must<flexi_cfg::config::grammar>, flexi_cfg::config::action,
+    #ifdef VERBOSE_DEBUG_ACTIONS
+
+//    std::stringstream ss;
+//    peg::print_debug<flexi_cfg::config::grammar>(ss);
+//    flexi_cfg::logger::trace("Grammar:\n{}\n\n======\n\n", ss.str());
+
+    success = peg::complete_trace<flexi_cfg::config::grammar, flexi_cfg::config::action,
                          flexi_cfg::config::control>(input, output);
+    #else
+    success = peg::parse<flexi_cfg::config::grammar, flexi_cfg::config::action,
+                         flexi_cfg::config::control>(input, output);
+    #endif
     // If parsing is successful, all of these containers should be empty (consumed into
     // 'output.cfg_res').
     success &= output.keys.empty();
@@ -48,13 +59,13 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
 
     if (!success) {
       const auto position = input.position();
-      flexi_cfg::logger::critical("  Parse failure");
+      flexi_cfg::logger::critical("  Parse failure (nested)");
       flexi_cfg::logger::error("  cfg_res size: {}", output.cfg_res.size());
 
       std::stringstream ss;
       output.print(ss);
       flexi_cfg::logger::error("Incomplete output: \n{}", ss.str());
-      flexi_cfg::logger::error("Error at: {} : {}", position.source, position.line);
+      flexi_cfg::logger::error("Error at: {}", position);
 
       // Print a trace if a failure occured.
       // input.restart();
@@ -62,18 +73,23 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
       return success;
     }
   } catch (const peg::parse_error& e) {
+//    exit(EXIT_FAILURE);
+
     success = false;
     flexi_cfg::logger::critical("!!!");
-    flexi_cfg::logger::critical("  Parser failure!");
-    const auto p = e.positions().front();
-    flexi_cfg::logger::critical("{}", e.what());
-    flexi_cfg::logger::critical("{}", input.line_at(p));
-    flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
+    flexi_cfg::logger::critical("  Parser failure: {}", e.what());
+
+    for (const auto p : e.positions()) {
+      flexi_cfg::logger::critical("{}", input.line_at(p));
+      flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
+      flexi_cfg::logger::critical("{}", p);
+    }
+
     std::stringstream ss;
     output.print(ss);
     flexi_cfg::logger::critical("Partial output: \n{}", ss.str());
     flexi_cfg::logger::critical("!!!");
-    return success;
+
   }
 
   return success;
