@@ -23,6 +23,7 @@
 #include "flexi_cfg/config/helpers.h"
 #include "flexi_cfg/logger.h"
 #include "flexi_cfg/utils.h"
+#include "flexi_cfg/config/trace.h"
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define CONFIG_ACTION_DEBUG(MSG_F, ...) \
@@ -409,7 +410,16 @@ struct action<INCLUDE> {
       const auto cfg_file = out.base_dir / out.result;
       peg::file_input include_file(cfg_file);
       logger::info("nested parse: {}", include_file.source());
+
+      namespace fcc = flexi_cfg::config;
+      namespace fext = flexi_cfg::peg_extensions;
+
+#ifdef VERBOSE_PARSE_TRACE
+      fext::complete_trace_nested<fcc::grammar, fcc::action, fcc::control>(in.position(), include_file, out);
+#else
       peg::parse_nested<config::grammar, config::action>(in.position(), include_file, out);
+#endif
+
     } catch (const std::system_error& e) {
       throw peg::parse_error("Include error", in.position());
     }
@@ -431,7 +441,16 @@ struct action<INCLUDE_RELATIVE> {
       auto temp_base_dir = out.base_dir;
       out.base_dir = cfg_file.parent_path();
       logger::info("nested parse: {}", include_file.source());
+
+      namespace fcc = flexi_cfg::config;
+      namespace fext = flexi_cfg::peg_extensions;
+
+#ifdef VERBOSE_PARSE_TRACE
+      fext::complete_trace_nested<fcc::grammar, fcc::action, fcc::control>(in.position(), include_file, out);
+#else
       peg::parse_nested<config::grammar, config::action>(in.position(), include_file, out);
+#endif
+
       // After nested parsing returns, revert base dir
       out.base_dir = temp_base_dir;
     } catch (const std::system_error& e) {

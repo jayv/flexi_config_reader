@@ -82,10 +82,11 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
 
     success = false;
     flexi_cfg::logger::critical("!!!");
-    flexi_cfg::logger::critical("  Parser failure:\n{}", e.what());
+    flexi_cfg::logger::critical("  Parser failure:\n{}", e.message());
+    flexi_cfg::logger::critical("{}", input.line_at(e.positions().front()));
     flexi_cfg::logger::critical("Backtrace:");
     for (const auto p : e.positions()) {
-      flexi_cfg::logger::critical("{}", input.line_at(p));
+      // TODO(jayv) capture the nested inputs for nice error prop
       flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
       flexi_cfg::logger::critical("{}", to_string(p));
     }

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Jo Voordeckers
 // Copyright (c) 2020-2022 Dr. Colin Hirsch and Daniel Frey
 // Please see LICENSE for license or visit https://github.com/taocpp/PEGTL/
-// Adapted from below, quick and dirty hack to make it work, TODO fix nested parsing
+// Adapted from below, quick and dirty hack to make it work
 // https://github.com/taocpp/PEGTL/blob/main/include/tao/pegtl/contrib/trace.hpp
 
 #pragma once
@@ -199,6 +199,19 @@ template <typename Rule, template <typename...> class Action = nothing,
 bool complete_trace(ParseInput&& in, States&&... st) {
   tracer<complete_tracer_traits> tr(in);
   return tr.parse<Rule, Action, Control>(in, st...);
+}
+
+template <typename Rule, template <typename...> class Action = nothing,
+          template <typename...> class Control = normal, typename Outer, typename ParseInput,
+          typename... States>
+auto complete_trace_nested(const Outer& o, ParseInput&& in, States&&... st) {
+  tracer<complete_tracer_traits> tr(in);
+  try {
+    return tr.parse<Rule, Action, Control>(in, st...);
+  } catch (parse_error& e) {
+    e.add_position(internal::get_position(o));
+    throw;
+  }
 }
 
 template <typename Tracer>
