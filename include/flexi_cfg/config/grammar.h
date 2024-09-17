@@ -159,7 +159,7 @@ struct PROTOs : peg::seq<PROTOk, SP, KEY> {};
 struct PROTO : STRUCT_LIKE<PROTOs, PROTOc> {};
 
 struct STRUCTc;
-struct STRUCTs : peg::seq<STRUCTk, SP, peg::must<KEY>> {};
+struct STRUCTs : peg::seq<STRUCTk, SP, KEY> {};
 struct STRUCT : STRUCT_LIKE<STRUCTs, STRUCTc> {};
 
 // Special definition of a struct contained in a proto
@@ -194,7 +194,7 @@ struct includes : peg::seq<include_list, include_relative_list> {};
 //
 // but never both in the same file. The `peg::not_at<PAIR>` prevents the PAIR that might appear in a
 // `STRUCTc` from being matched as a `FULLPAIR` object.
-struct config_fields
+struct config_fields // TODO(jayv) opt necessary?
     : peg::opt<peg::sor<peg::seq<peg::not_at<PAIR>, peg::plus<FULLPAIR>>, STRUCTc>> {};
 
 // struct CONFIG : peg::seq<TAIL, peg::not_at<peg::eolf>, includes, config_fields, TAIL> {};
