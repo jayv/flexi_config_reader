@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <optional>
 #include <tao/pegtl/contrib/analyze.hpp>
+#include <iosfwd>
 
 #include "flexi_cfg/config/actions.h"
 #include "flexi_cfg/config/classes.h"
@@ -748,4 +749,136 @@ TEST(ConfigGrammar, FULLPAIR) {
     }
   }
   EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+}
+
+TEST(ConfigGrammar, INCLUDE)  {
+//  const std::string flat_key = "include this_file_name.cfg";
+//  const std::string content = flat_key + "   =  5.37e+6";
+//
+//  auto ret = runTest<peg::must<flexi_cfg::filename::grammar>>(content);
+//  EXPECT_TRUE(ret.first);
+//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
+//  // keys are resolved into structs.
+//  ret.second.cfg_res.erase(
+//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
+//                     [](const auto& m) { return m.empty(); }),
+//      std::end(ret.second.cfg_res));
+//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
+//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
+//  for (const auto& key : keys) {
+//    ASSERT_TRUE(cfg_map->contains(key));
+//    auto struct_like =
+//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
+//    if (struct_like != nullptr) {
+//      cfg_map = &struct_like->data;
+//    }
+//  }
+//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+}
+
+TEST(ConfigGrammar, INCLUDE_ABSOLUTE {
+
+  const std::string config = "include /tmp/pegtl/absolute.cfg";
+  std::filesystem::path absolute_cfg = "/tmp/pegtl/absolute.cfg";
+  {
+    std::ofstream absolute_cfg_file(std::filesystem::path(head_cam_ser_fname),
+                                    std::ios::out | std::ios::trunc);
+    absolute_cfg_file <<  "absolute_config_loaded" << "\n";
+  }
+
+  auto ret = runTest<peg::must<flexi_cfg::config::INCLUDE>>(content);
+
+  EXPECT_TRUE(ret.first);
+
+  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+  auto& cfg_map = &ret.second.cfg_res.front();
+  const auto keys = flexi_cfg::utils::split(flat_key, '.');
+  for (const auto& key : keys) {
+    ASSERT_TRUE(cfg_map->contains(key));
+    auto struct_like =
+        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
+    if (struct_like != nullptr) {
+      cfg_map = &struct_like->data;
+    }
+  }
+  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+}
+
+TEST(ConfigGrammar, INCLUDE_OPTIONAL) {
+//  const std::string flat_key = "float.my.value";
+//  const std::string content = flat_key + "   =  5.37e+6";
+//
+//  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
+//  EXPECT_TRUE(ret.first);
+//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
+//  // keys are resolved into structs.
+//  ret.second.cfg_res.erase(
+//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
+//                     [](const auto& m) { return m.empty(); }),
+//      std::end(ret.second.cfg_res));
+//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
+//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
+//  for (const auto& key : keys) {
+//    ASSERT_TRUE(cfg_map->contains(key));
+//    auto struct_like =
+//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
+//    if (struct_like != nullptr) {
+//      cfg_map = &struct_like->data;
+//    }
+//  }
+//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+}
+
+TEST(ConfigGrammar, INCLUDE_RELATIVE) {
+//  const std::string flat_key = "float.my.value";
+//  const std::string content = flat_key + "   =  5.37e+6";
+//
+//  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
+//  EXPECT_TRUE(ret.first);
+//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
+//  // keys are resolved into structs.
+//  ret.second.cfg_res.erase(
+//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
+//                     [](const auto& m) { return m.empty(); }),
+//      std::end(ret.second.cfg_res));
+//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
+//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
+//  for (const auto& key : keys) {
+//    ASSERT_TRUE(cfg_map->contains(key));
+//    auto struct_like =
+//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
+//    if (struct_like != nullptr) {
+//      cfg_map = &struct_like->data;
+//    }
+//  }
+//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+}
+
+TEST(ConfigGrammar, INCLUDE_RELATIVE_OPTIONAL) {
+//  const std::string flat_key = "float.my.value";
+//  const std::string content = flat_key + "   =  5.37e+6";
+//
+//  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
+//  EXPECT_TRUE(ret.first);
+//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
+//  // keys are resolved into structs.
+//  ret.second.cfg_res.erase(
+//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
+//                     [](const auto& m) { return m.empty(); }),
+//      std::end(ret.second.cfg_res));
+//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
+//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
+//  for (const auto& key : keys) {
+//    ASSERT_TRUE(cfg_map->contains(key));
+//    auto struct_like =
+//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
+//    if (struct_like != nullptr) {
+//      cfg_map = &struct_like->data;
+//    }
+//  }
+//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
 }

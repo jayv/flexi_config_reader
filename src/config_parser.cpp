@@ -35,6 +35,7 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
   try {
     success = peg::parse<peg::must<flexi_cfg::config::grammar>, flexi_cfg::config::action,
                          flexi_cfg::config::control>(input, output);
+    flexi_cfg::logger::debug("Grammar Parse => {}!", success ? "SUCCESS" : "FAILED");
     // If parsing is successful, all of these containers should be empty (consumed into
     // 'output.cfg_res').
     success &= output.keys.empty();
@@ -65,10 +66,13 @@ auto parseCommon(INPUT& input, flexi_cfg::config::ActionData& output) -> bool {
     success = false;
     flexi_cfg::logger::critical("!!!");
     flexi_cfg::logger::critical("  Parser failure!");
-    const auto p = e.positions().front();
     flexi_cfg::logger::critical("{}", e.what());
+    const auto p = e.positions().front();
     flexi_cfg::logger::critical("{}", input.line_at(p));
     flexi_cfg::logger::critical("{}^", std::string(p.column - 1, ' '));
+    for (auto& pos : e.positions()) {
+      flexi_cfg::logger::critical("at {}:{}:{}", pos.source, pos.line, pos.column);
+    }
     std::stringstream ss;
     output.print(ss);
     flexi_cfg::logger::critical("Partial output: \n{}", ss.str());
@@ -114,17 +118,17 @@ namespace flexi_cfg {
 
 auto Parser::parse(const std::filesystem::path& cfg_filename,
                    std::optional<std::filesystem::path> root_dir) -> Reader {
-  config::ActionData state;
-
   std::filesystem::path input_file;
+  std::filesystem::path base_dir;
   if (root_dir.has_value()) {
     input_file = root_dir.value() / cfg_filename;
-    state.base_dir = root_dir.value();
+    base_dir = root_dir.value();
   } else {
     input_file = cfg_filename;
-    state.base_dir = cfg_filename.parent_path();
+    base_dir = cfg_filename.parent_path();
   }
   peg::file_input cfg_file(input_file);
+  config::ActionData state{cfg_filename.string(), base_dir};
 
   // TODO(miker2): Do something smarter if "parseCommon" fails!
   parseCommon(cfg_file, state);

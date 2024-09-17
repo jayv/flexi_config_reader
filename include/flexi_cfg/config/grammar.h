@@ -65,6 +65,9 @@ struct REFk : TAO_PEGTL_KEYWORD("reference") {};
 struct ASk : TAO_PEGTL_KEYWORD("as") {};
 struct OVERRIDEk : TAO_PEGTL_KEYWORD("[override]") {};
 struct PARENTNAMEk : TAO_PEGTL_KEYWORD("$PARENT_NAME") {};
+struct INCLUDEk : TAO_PEGTL_KEYWORD("include") {};
+struct INCLUDE_RELATIVEk : TAO_PEGTL_KEYWORD("include_relative") {};
+struct OPTIONALk : TAO_PEGTL_KEYWORD("[optional]") {};
 
 struct RESERVED : peg::sor<STRUCTk, PROTOk, REFk, ASk, OVERRIDEk, PARENTNAMEk> {};
 
@@ -168,12 +171,15 @@ struct PROTOc : peg::plus<peg::sor<PROTO_PAIR, STRUCT_IN_PROTO, REFERENCE>> {};
 struct STRUCTc : peg::plus<peg::sor<PAIR, STRUCT, REFERENCE, PROTO>> {};
 
 // Include syntax
-struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, filename::grammar, TAIL> {};
+struct INCLUDE : peg::seq<TAO_PEGTL_KEYWORD("include"), SP, peg::opt<OPTIONALk>, SP, filename::grammar, TAIL> {};
 struct include_list : peg::star<INCLUDE> {};
 
 // Include relative syntax
 struct INCLUDE_RELATIVE
-    : peg::seq<TAO_PEGTL_KEYWORD("include_relative"), SP, filename::grammar, TAIL> {};
+    : peg::seq<TAO_PEGTL_KEYWORD("include_relative"), SP, peg::opt<OPTIONALk>, SP, filename::grammar, TAIL> {};
+
+
+
 struct include_relative_list : peg::star<INCLUDE_RELATIVE> {};
 
 struct includes : peg::seq<include_list, include_relative_list, TAIL> {};
