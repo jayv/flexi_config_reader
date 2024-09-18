@@ -79,13 +79,18 @@ else(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY "")
 endif(ENABLE_CLANG_TIDY)
 
+option(CFG_ENABLE_DEBUG "Enable DEBUG logging." OFF)
 option(CFG_ENABLE_TEST "Enable unit tests." ON)
 option(CFG_EXAMPLES "Build example applications." OFF)
 option(CFG_PYTHON_BINDINGS "Build python bindings." OFF)
 option(CFG_PYTHON_INSTALL_DIR "Installation directory of python bindings." "")
 
+add_compile_definitions(-DEXAMPLE_DIR="${CMAKE_SOURCE_DIR}/examples")
 
-add_definitions(-DEXAMPLE_DIR="${CMAKE_SOURCE_DIR}/examples")
+if(CFG_ENABLE_DEBUG)
+  add_compile_definitions(VERBOSE_DEBUG_ACTIONS=1)
+  message(STATUS "Enabling VERBOSE_DEBUG_ACTIONS")
+endif(CFG_ENABLE_DEBUG)
 
 set(PUBLIC_CFG_HEADERS include/flexi_cfg/reader.h include/flexi_cfg/parser.h)
 set(CFG_HEADERS

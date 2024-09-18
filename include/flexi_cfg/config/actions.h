@@ -33,8 +33,6 @@
 #define CONFIG_ACTION_TRACE(MSG_F, ...) \
   logger::trace("{}" MSG_F, std::string(out.depth * 2UL, ' '), ##__VA_ARGS__);
 
-#define VERBOSE_DEBUG_ACTIONS 0  // NOLINT(cppcoreguidelines-macro-usage)
-
 namespace flexi_cfg::config {
 
 constexpr std::string_view DEFAULT_RES{"***"};
@@ -51,7 +49,7 @@ struct ActionData {
 
   ActionData() : ActionData(std::filesystem::current_path()){}
   ActionData(std::filesystem::path base) : ActionData("", base) {}
-  ActionData(std::string file, std::filesystem::path base) {
+  ActionData(std::filesystem::path base, std::string file) {
     includes.emplace(IncludeData{.base = base, .file = file});
   }
 
@@ -455,7 +453,7 @@ struct base_include_action {
       const auto cfg_file = std::filesystem::absolute(
           is_absolute ? std::filesystem::path(include.file) : include.base / include.file);
 
-      if (!std::filesystem::exists(cfg_file)) {
+      if (!exists(cfg_file)) {
         if (include.is_optional) {
           logger::warn("Skipping, [optional] include (not found): {}", cfg_file.string());
           out.includes.pop();

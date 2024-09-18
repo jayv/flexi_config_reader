@@ -1,26 +1,40 @@
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <iosfwd>
 #include <optional>
 #include <tao/pegtl/contrib/analyze.hpp>
-#include <iosfwd>
+#include <tao/pegtl/contrib/trace.hpp>
 
 #include "flexi_cfg/config/actions.h"
 #include "flexi_cfg/config/classes.h"
 #include "flexi_cfg/config/grammar.h"
+#include "flexi_cfg/config/trace.h"
 
 namespace peg = TAO_PEGTL_NAMESPACE;
+
+using namespace fmt::literals;
 
 namespace {
 using RetType = std::pair<bool, flexi_cfg::config::ActionData>;
 
 template <typename GTYPE>
-auto runTest(const std::string& test_str) -> RetType {
+auto runTest(const std::string& test_str, bool trace = false) -> RetType {
   peg::memory_input in(test_str, "from_content");
-
-  flexi_cfg::config::ActionData out;
-  const auto ret = peg::parse<GTYPE, flexi_cfg::config::action>(in, out);
-  // out.print();
+  flexi_cfg::config::ActionData out( EXAMPLE_DIR, std::filesystem::path(EXAMPLE_DIR));
+  bool ret;
+#ifdef VERBOSE_DEBUG_ACTIONS
+  // setLevel(flexi_cfg::logger::Severity::TRACE);
+  if (trace) {
+    ret = flexi_cfg::peg_extensions::complete_trace<peg::must<flexi_cfg::config::INCLUDE>,
+                                                    flexi_cfg::config::action>(in, out);
+  } else {
+    ret = peg::parse<GTYPE, flexi_cfg::config::action>(in, out);
+  }
+#else
+  ret = peg::parse<GTYPE, flexi_cfg::config::action>(in, out);
+#endif
   return {ret, out};
 }
 
@@ -751,134 +765,110 @@ TEST(ConfigGrammar, FULLPAIR) {
   EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
 }
 
-TEST(ConfigGrammar, INCLUDE)  {
-//  const std::string flat_key = "include this_file_name.cfg";
-//  const std::string content = flat_key + "   =  5.37e+6";
-//
-//  auto ret = runTest<peg::must<flexi_cfg::filename::grammar>>(content);
-//  EXPECT_TRUE(ret.first);
-//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
-//  // keys are resolved into structs.
-//  ret.second.cfg_res.erase(
-//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
-//                     [](const auto& m) { return m.empty(); }),
-//      std::end(ret.second.cfg_res));
-//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
-//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
-//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
-//  for (const auto& key : keys) {
-//    ASSERT_TRUE(cfg_map->contains(key));
-//    auto struct_like =
-//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
-//    if (struct_like != nullptr) {
-//      cfg_map = &struct_like->data;
-//    }
-//  }
-//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
-}
-
-TEST(ConfigGrammar, INCLUDE_ABSOLUTE {
-
-  const std::string config = "include /tmp/pegtl/absolute.cfg";
-  std::filesystem::path absolute_cfg = "/tmp/pegtl/absolute.cfg";
-  {
-    std::ofstream absolute_cfg_file(std::filesystem::path(head_cam_ser_fname),
-                                    std::ios::out | std::ios::trunc);
-    absolute_cfg_file <<  "absolute_config_loaded" << "\n";
-  }
-
-  auto ret = runTest<peg::must<flexi_cfg::config::INCLUDE>>(content);
-
-  EXPECT_TRUE(ret.first);
-
-  ASSERT_EQ(ret.second.cfg_res.size(), 1);
-  auto& cfg_map = &ret.second.cfg_res.front();
-  const auto keys = flexi_cfg::utils::split(flat_key, '.');
-  for (const auto& key : keys) {
-    ASSERT_TRUE(cfg_map->contains(key));
-    auto struct_like =
-        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
-    if (struct_like != nullptr) {
-      cfg_map = &struct_like->data;
+struct tmp_cfg_file {
+  explicit tmp_cfg_file(std::string name)
+      : path(fmt::format("/tmp/pegtl/{}_{}.cfg", std::tmpnam(nullptr), name)) {
+    const std::string cfg_content = R"(
+      foo = 123
+    )";
+    create_directories(path.parent_path());
+    {
+      std::ofstream absolute_cfg_file(std::filesystem::path(path), std::ios::out | std::ios::trunc);
+      absolute_cfg_file << cfg_content << "\n";
     }
   }
-  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+  const std::filesystem::path path;
+  ~tmp_cfg_file() { remove(path); }
+};
+
+TEST(ConfigGrammar, INCLUDE_ABSOLUTE) {
+  tmp_cfg_file tmp_cfg{"absolute"};
+  const std::string test_config = fmt::format("include {}", tmp_cfg.path.string());
+  auto ret = runTest<peg::must<flexi_cfg::config::INCLUDE>>(test_config);
+  EXPECT_TRUE(ret.first);
+  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+  auto cfg_map = &ret.second.cfg_res.front();
+  ASSERT_TRUE(cfg_map->contains("foo"));
+  auto val = std::dynamic_pointer_cast<flexi_cfg::config::types::ConfigValue>(cfg_map->at("foo"));
+  ASSERT_EQ(val.get()->value, "123");
+}
+
+TEST(ConfigGrammar, INCLUDE) {
+  const std::string test_config = "include nested/simple_include.cfg";
+  auto ret = runTest<peg::must<flexi_cfg::config::INCLUDE>>(test_config);
+  EXPECT_TRUE(ret.first);
+  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+  auto cfg_map = &ret.second.cfg_res.front();
+  ASSERT_TRUE(cfg_map->contains("foo"));
+  auto val = std::dynamic_pointer_cast<flexi_cfg::config::types::ConfigValue>(cfg_map->at("foo"));
+  ASSERT_EQ(val.get()->value, "123");
 }
 
 TEST(ConfigGrammar, INCLUDE_OPTIONAL) {
-//  const std::string flat_key = "float.my.value";
-//  const std::string content = flat_key + "   =  5.37e+6";
-//
-//  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
-//  EXPECT_TRUE(ret.first);
-//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
-//  // keys are resolved into structs.
-//  ret.second.cfg_res.erase(
-//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
-//                     [](const auto& m) { return m.empty(); }),
-//      std::end(ret.second.cfg_res));
-//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
-//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
-//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
-//  for (const auto& key : keys) {
-//    ASSERT_TRUE(cfg_map->contains(key));
-//    auto struct_like =
-//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
-//    if (struct_like != nullptr) {
-//      cfg_map = &struct_like->data;
-//    }
-//  }
-//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+
+  const std::string test_config =
+      "include nested/simple_include.cfg\n"
+      "include nested/does_not_exist.cfg\n";
+  auto ret = runTest<peg::must<flexi_cfg::config::includes>>(test_config, false);
+
+  EXPECT_TRUE(ret.first);
+  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+  auto cfg_map = &ret.second.cfg_res.front();
+  ASSERT_TRUE(cfg_map->contains("foo"));
+  auto val = std::dynamic_pointer_cast<flexi_cfg::config::types::ConfigValue>(cfg_map->at("foo"));
+  ASSERT_EQ(val.get()->value, "123");
 }
 
 TEST(ConfigGrammar, INCLUDE_RELATIVE) {
-//  const std::string flat_key = "float.my.value";
-//  const std::string content = flat_key + "   =  5.37e+6";
-//
-//  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
-//  EXPECT_TRUE(ret.first);
-//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
-//  // keys are resolved into structs.
-//  ret.second.cfg_res.erase(
-//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
-//                     [](const auto& m) { return m.empty(); }),
-//      std::end(ret.second.cfg_res));
-//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
-//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
-//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
-//  for (const auto& key : keys) {
-//    ASSERT_TRUE(cfg_map->contains(key));
-//    auto struct_like =
-//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
-//    if (struct_like != nullptr) {
-//      cfg_map = &struct_like->data;
-//    }
-//  }
-//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+  //  const std::string flat_key = "float.my.value";
+  //  const std::string content = flat_key + "   =  5.37e+6";
+  //
+  //  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
+  //  EXPECT_TRUE(ret.first);
+  //  // Eliminate any vector elements with an empty map. This may be the case due to the way that
+  //  flat
+  //  // keys are resolved into structs.
+  //  ret.second.cfg_res.erase(
+  //      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
+  //                     [](const auto& m) { return m.empty(); }),
+  //      std::end(ret.second.cfg_res));
+  //  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+  //  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
+  //  const auto keys = flexi_cfg::utils::split(flat_key, '.');
+  //  for (const auto& key : keys) {
+  //    ASSERT_TRUE(cfg_map->contains(key));
+  //    auto struct_like =
+  //        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
+  //    if (struct_like != nullptr) {
+  //      cfg_map = &struct_like->data;
+  //    }
+  //  }
+  //  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
 }
 
 TEST(ConfigGrammar, INCLUDE_RELATIVE_OPTIONAL) {
-//  const std::string flat_key = "float.my.value";
-//  const std::string content = flat_key + "   =  5.37e+6";
-//
-//  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
-//  EXPECT_TRUE(ret.first);
-//  // Eliminate any vector elements with an empty map. This may be the case due to the way that flat
-//  // keys are resolved into structs.
-//  ret.second.cfg_res.erase(
-//      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
-//                     [](const auto& m) { return m.empty(); }),
-//      std::end(ret.second.cfg_res));
-//  ASSERT_EQ(ret.second.cfg_res.size(), 1);
-//  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
-//  const auto keys = flexi_cfg::utils::split(flat_key, '.');
-//  for (const auto& key : keys) {
-//    ASSERT_TRUE(cfg_map->contains(key));
-//    auto struct_like =
-//        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
-//    if (struct_like != nullptr) {
-//      cfg_map = &struct_like->data;
-//    }
-//  }
-//  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
+  //  const std::string flat_key = "float.my.value";
+  //  const std::string content = flat_key + "   =  5.37e+6";
+  //
+  //  auto ret = runTest<peg::must<flexi_cfg::config::FULLPAIR, peg::eolf>>(content);
+  //  EXPECT_TRUE(ret.first);
+  //  // Eliminate any vector elements with an empty map. This may be the case due to the way that
+  //  flat
+  //  // keys are resolved into structs.
+  //  ret.second.cfg_res.erase(
+  //      std::remove_if(std::begin(ret.second.cfg_res), std::end(ret.second.cfg_res),
+  //                     [](const auto& m) { return m.empty(); }),
+  //      std::end(ret.second.cfg_res));
+  //  ASSERT_EQ(ret.second.cfg_res.size(), 1);
+  //  flexi_cfg::config::types::CfgMap* cfg_map = &ret.second.cfg_res.front();
+  //  const auto keys = flexi_cfg::utils::split(flat_key, '.');
+  //  for (const auto& key : keys) {
+  //    ASSERT_TRUE(cfg_map->contains(key));
+  //    auto struct_like =
+  //        dynamic_pointer_cast<flexi_cfg::config::types::ConfigStructLike>(cfg_map->at(key));
+  //    if (struct_like != nullptr) {
+  //      cfg_map = &struct_like->data;
+  //    }
+  //  }
+  //  EXPECT_EQ(cfg_map->at(keys.back())->type, flexi_cfg::config::types::Type::kNumber);
 }
