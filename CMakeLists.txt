@@ -129,6 +129,9 @@ set(CFG_HEADERS
   include/flexi_cfg/math/actions.h
   include/flexi_cfg/math/grammar.h
   include/flexi_cfg/math/helpers.h
+  include/flexi_cfg/visitor.h
+  include/flexi_cfg/visitor-internal.h
+  include/flexi_cfg/visitor-json.h
   include/flexi_cfg/utils.h)
 
 add_library(flexi_cfg
