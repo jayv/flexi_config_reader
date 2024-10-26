@@ -1,0 +1,45 @@
+{
+  "name": "flexi_config",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "1.0.0",
+  "publisher": "flexi_config",
+  "license": "MIT",
+  "engines": {
+    "vscode": "*"
+  },
+  "scripts": {
+    "update-grammar": "node ../node_modules/vscode-grammar-updater/bin worlpaker/flexi_cfg-syntax syntaxes/flexi_cfg.tmLanguage.json ./syntaxes/flexi_cfg.tmLanguage.json"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "flexi_cfg",
+        "extensions": [
+          ".cfg"
+        ],
+        "aliases": [
+          "FlexiConfig"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "flexi_cfg",
+        "scopeName": "source.flexi_cfg",
+        "path": "./syntaxes/flexi_cfg.tmLanguage.json"
+      }
+    ],
+    "configurationDefaults": {
+      "[flexi_cfg]": {
+        "editor.insertSpaces": false
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miker2/flexi_config_reader.git"
+  }
+}
